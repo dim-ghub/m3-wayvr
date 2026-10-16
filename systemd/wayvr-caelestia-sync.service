@@ -1,0 +1,7 @@
+[Unit]
+Description=Regenerate the WayVR palette from Caelestia's color scheme
+
+[Service]
+Type=oneshot
+# @REPO@ is replaced by install.sh with this project's path
+ExecStart=/usr/bin/bun @REPO@/sync-caelestia.ts

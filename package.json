@@ -1,0 +1,13 @@
+{
+  "name": "m3-wayvr",
+  "version": "1.0.0",
+  "description": "Material 3 Expressive theme for the WayVR VR overlay",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "bun generate.ts"
+  },
+  "dependencies": {
+    "@material/material-color-utilities": "^0.4.0"
+  }
+}

@@ -1,0 +1,156 @@
+diff --git a/uidev/Cargo.toml b/uidev/Cargo.toml
+index 6f6c3c1..b2adf02 100644
+--- a/uidev/Cargo.toml
++++ b/uidev/Cargo.toml
+@@ -13,6 +13,7 @@ wgui = { path = "../wgui/" }
+ wlx-common = { path = "../wlx-common" }
+ 
+ anyhow.workspace = true
++image = { version = "0.25", default-features = false, features = ["png"] }
+ glam.workspace = true
+ log.workspace = true
+ rust-embed.workspace = true
+diff --git a/uidev/src/main.rs b/uidev/src/main.rs
+index 69e95fa..6965265 100644
+--- a/uidev/src/main.rs
++++ b/uidev/src/main.rs
+@@ -39,6 +39,7 @@ use crate::{
+ mod assets;
+ mod profiler;
+ mod rate_limiter;
++mod offscreen;
+ mod testbed;
+ mod vulkan;
+ 
+@@ -319,6 +320,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
+ 					})
+ 					.unwrap();
+ 
++				// Offscreen mode: after a few frames (fonts and images load), save a PNG and quit.
++				if let Ok(out) = std::env::var("RENDER_PNG") {
++					frame_index += 1;
++					if frame_index >= 5 {
++						let scale = std::env::var("RENDER_SCALE").ok().and_then(|v| v.parse().ok()).unwrap_or(2.0);
++						if let Err(e) = offscreen::render_png(&gfx, &mut shared_context, testbed.layout(), scale, &out) {
++							log::error!("offscreen render failed: {e:?}");
++							std::process::exit(1);
++						}
++						std::process::exit(0);
++					}
++					return;
++				}
++
+ 				if !render_context.dirty && !testbed.layout().check_toggle_needs_redraw() {
+ 					// no need to redraw
+ 					std::thread::sleep(std::time::Duration::from_millis(5)); // dirty fix to prevent cpu burning precious cycles doing a busy loop
+diff --git a/uidev/src/testbed/testbed_any.rs b/uidev/src/testbed/testbed_any.rs
+index ec1e1a2..8a9be89 100644
+--- a/uidev/src/testbed/testbed_any.rs
++++ b/uidev/src/testbed/testbed_any.rs
+@@ -38,7 +38,7 @@ impl TestbedAny {
+ 			&lang_provider,
+ 			&WguiFontConfig::default(),
+ 			PathBuf::new(), // cwd
+-			WguiColorPalette::get_builtin(&palette_name),
++			wlx_common::palette::load_palette(&palette_name),
+ 		)?;
+ 
+ 		let (layout, state) = wgui::parser::new_layout_from_assets(
+@@ -47,7 +47,7 @@ impl TestbedAny {
+ 				path,
+ 				extra: Default::default(),
+ 			},
+-			LayoutParams::default(),
++			LayoutParams { theme: std::rc::Rc::new(wgui::theme::WguiTheme { rounding_mult: std::env::var("ROUND").ok().and_then(|v| v.parse().ok()).unwrap_or(1.0), gradient_intensity: 0.0, ..Default::default() }), ..Default::default() },
+ 		)?;
+ 		Ok(Self { layout, state })
+ 	}
+diff --git a/uidev/src/offscreen.rs b/uidev/src/offscreen.rs
+new file mode 100644
+index 0000000..35a4adf
+--- /dev/null
++++ b/uidev/src/offscreen.rs
+@@ -0,0 +1,83 @@
++// Renders the current layout into an offscreen image and saves it as a
++// transparent PNG (RENDER_PNG=path, optional RENDER_SCALE, default 2).
++
++use std::sync::Arc;
++
++use vulkano::{
++	buffer::{Buffer, BufferCreateInfo, BufferUsage},
++	command_buffer::{CommandBufferUsage, CopyImageToBufferInfo},
++	format::Format,
++	image::{ImageUsage, view::ImageView},
++	memory::allocator::{AllocationCreateInfo, MemoryTypeFilter},
++};
++use wgui::{
++	gfx::{WGfx, cmd::WGfxClearMode},
++	layout::Layout,
++	renderer_vk,
++};
++
++pub fn render_png(
++	gfx: &Arc<WGfx>,
++	shared: &mut renderer_vk::context::SharedContext,
++	layout: &mut Layout,
++	scale: f32,
++	path: &str,
++) -> anyhow::Result<()> {
++	let size = layout.content_size;
++	let (w, h) = ((size.x * scale).ceil() as u32, (size.y * scale).ceil() as u32);
++	anyhow::ensure!(w > 0 && h > 0, "layout has no content");
++
++	let mut ctx = renderer_vk::context::Context::new(shared, scale)?;
++	ctx.update_viewport(shared, [w, h], scale)?;
++
++	let image = gfx.new_image(w, h, gfx.surface_format, ImageUsage::COLOR_ATTACHMENT | ImageUsage::TRANSFER_SRC)?;
++	let readback = Buffer::new_slice::<u8>(
++		gfx.memory_allocator.clone(),
++		BufferCreateInfo {
++			usage: BufferUsage::TRANSFER_DST,
++			..Default::default()
++		},
++		AllocationCreateInfo {
++			memory_type_filter: MemoryTypeFilter::PREFER_HOST | MemoryTypeFilter::HOST_RANDOM_ACCESS,
++			..Default::default()
++		},
++		u64::from(w * h * 4),
++	)?;
++
++	let mut cmd = gfx.create_gfx_command_buffer(CommandBufferUsage::OneTimeSubmit)?;
++	cmd.begin_rendering(ImageView::new_default(image.clone())?, WGfxClearMode::Clear([0.0, 0.0, 0.0, 0.0]))?;
++	{
++		let globals = layout.state.globals.clone();
++		let mut globals = globals.get();
++		let primitives = {
++			let mut params = wgui::drawing::DrawParams {
++				globals: &mut globals,
++				layout,
++				debug_draw: false,
++				timestep_alpha: 1.0,
++			};
++			wgui::drawing::draw(&mut params)?
++		};
++		ctx.draw(&globals.font_system, shared, &mut cmd, &primitives)?;
++	}
++	cmd.end_rendering()?;
++	cmd.command_buffer
++		.copy_image_to_buffer(CopyImageToBufferInfo::image_buffer(image, readback.clone()))?;
++	cmd.build_and_execute_now()?;
++
++	let bgra = matches!(
++		gfx.surface_format,
++		Format::B8G8R8A8_SRGB | Format::B8G8R8A8_UNORM
++	);
++	let data = readback.read()?;
++	let mut rgba = Vec::with_capacity(data.len());
++	for px in data.chunks_exact(4) {
++		let (r, g, b, a) = if bgra { (px[2], px[1], px[0], px[3]) } else { (px[0], px[1], px[2], px[3]) };
++		// Blending onto a transparent clear leaves color premultiplied by alpha
++		let un = |c: u8| if a == 0 { 0 } else { ((u32::from(c) * 255 + u32::from(a) / 2) / u32::from(a)).min(255) as u8 };
++		rgba.extend_from_slice(&[un(r), un(g), un(b), a]);
++	}
++	image::save_buffer(path, &rgba, w, h, image::ColorType::Rgba8)?;
++	log::info!("wrote {path} ({w}x{h}, {:?})", gfx.surface_format);
++	Ok(())
++}

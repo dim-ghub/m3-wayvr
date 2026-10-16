@@ -1,0 +1,43 @@
+<layout>
+  <!--
+    Material 3 Expressive / Caelestia notification card.
+
+    WayVR fills the title/body labels by id, and the ids changed between
+    versions: 26.8.0 uses toast_title/toast_body, later builds use
+    label_title/label_body. Both pairs are here; the unused pair stays empty
+    and takes no space.
+
+    Later builds also scale `rect_separator` as the toast's countdown and tint
+    `rect`'s border with tertiary while it's paused. 26.8.0 leaves both static.
+  -->
+  <elements>
+    <!-- Provides a larger hitbox for eye gaze -->
+    <div padding="60" interactable="0">
+      <rectangle id="rect"
+        max_width="520" min_width="320"
+        padding="14" flex_direction="column" gap="10"
+        color="background_contrast" border_color="background_contrast" border="2" round="8">
+
+        <div flex_direction="row" align_items="center" gap="12" id="div_title">
+          <rectangle width="42" height="42" round="100%" color="background_variant" align_items="center" justify_content="center">
+            <sprite id="sprite_bell" src_builtin="icons/bell.svg" color="primary" width="22" height="22" />
+          </rectangle>
+          <div flex_direction="column" flex_shrink="1">
+            <label wrap="1" id="toast_title" color="on_background_contrast" weight="bold" size="22" />
+            <label wrap="1" id="label_title" color="on_background_contrast" weight="bold" size="22" />
+          </div>
+        </div>
+
+        <div flex_direction="column" padding_left="54" padding_right="8">
+          <label id="toast_body" color="on_background_variant" wrap="1" size="18" />
+          <label id="label_body" color="on_background_variant" wrap="1" size="18" />
+        </div>
+
+        <!-- Countdown (animated on later builds) -->
+        <rectangle width="100%" height="4" round="100%" color="background_variant">
+          <rectangle id="rect_separator" width="100%" height="4" round="100%" color="primary" />
+        </rectangle>
+      </rectangle>
+    </div>
+  </elements>
+</layout>

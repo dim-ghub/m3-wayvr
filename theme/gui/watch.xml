@@ -1,0 +1,287 @@
+<layout>
+  <!--
+    Material 3 Expressive / Caelestia "drawer" watch for WayVR.
+
+    Corner radii are in wgui units, multiplied by ui_round_multiplier
+    (install.sh sets 2.0, so r_panel 14 renders as 28px). Pills use 100%,
+    which the multiplier does not touch.
+
+    Kept short and wide on purpose: WayVR fixes the watch's world width and
+    position on the left controller, so every extra pixel of height pushes it
+    toward the controller model.
+
+    install.sh rewrites hour_fmt / ampm_display to match your clock_12h setting.
+  -->
+  <theme>
+    <var key="r_panel" value="14" />
+    <var key="r_card" value="8" />
+    <var key="clock_size" value="46" />
+    <var key="hour_fmt" value="%H" />
+    <var key="ampm_display" value="none" />
+  </theme>
+
+  <!-- Tonal pill button. Hover = tertiary container, toggled (sticky) = primary.
+       Child sprites/labels pick up the matching on_* color automatically. -->
+  <macro name="chip"
+    height="30" min_width="30" padding_left="8" padding_right="10" gap="5" round="100%"
+    border="0" color="background_variant" border_color="background_variant"
+    hover_color="tertiary" hover_border_color="tertiary"
+    sticky_color="primary" sticky_border_color="primary" />
+
+  <macro name="icon_button"
+    width="34" height="34" round="100%"
+    border="0" color="background_variant" border_color="background_variant"
+    hover_color="tertiary" hover_border_color="tertiary"
+    sticky_color="primary" sticky_border_color="primary" />
+
+  <!-- Device battery row: tonal icon badge + percentage -->
+  <template name="Device">
+    <div flex_direction="row" align_items="center" gap="6" width="80">
+      <rectangle width="28" height="28" round="100%" color="background_variant" align_items="center" justify_content="center">
+        <sprite width="18" height="18" src_builtin="${icon}" color="primary" />
+      </rectangle>
+      <label _source="battery" _device="${idx}" size="15" weight="bold"
+        _low_color="danger" _normal_color="on_background" _charging_color="primary" />
+    </div>
+  </template>
+
+  <template name="Hmd">
+    <Device idx="${idx}" icon="watch/hmd.svg" />
+  </template>
+  <template name="LeftHand">
+    <Device idx="${idx}" icon="watch/controller_l.svg" />
+  </template>
+  <template name="RightHand">
+    <Device idx="${idx}" icon="watch/controller_r.svg" />
+  </template>
+  <template name="Tracker">
+    <Device idx="${idx}" icon="watch/track.svg" />
+  </template>
+
+  <!-- Overlay chips, shown in the drawer tab -->
+  <template name="Screen">
+    <Button macro="chip" id="overlay_${idx}" tooltip_str="${name}" _press="::OverlayToggle ${name}">
+      <sprite width="17" height="17" src_builtin="edit/screen.svg" />
+      <label text="${display}" size="13" weight="bold" />
+    </Button>
+  </template>
+  <template name="Panel">
+    <Button macro="chip" id="overlay_${idx}" tooltip_str="${name}" _press="::OverlayToggle ${name}" padding_right="10">
+      <sprite width="17" height="17" src_builtin="edit/panel.svg" />
+    </Button>
+  </template>
+  <template name="Mirror">
+    <Button macro="chip" id="overlay_${idx}" tooltip_str="${name}" _press="::OverlayToggle ${name}">
+      <sprite width="17" height="17" src_builtin="edit/mirror.svg" />
+      <label text="${display}" size="13" weight="bold" />
+    </Button>
+  </template>
+  <template name="Passthru">
+    <Button macro="chip" id="overlay_${idx}" tooltip_str="${name}" _press="::OverlayToggle ${name}">
+      <sprite width="17" height="17" src_builtin="icons/landscape.svg" />
+      <label text="${display}" size="13" weight="bold" />
+    </Button>
+  </template>
+  <template name="App">
+    <Button macro="chip" id="overlay_${idx}" tooltip_str="${name}" _press="::OverlayToggle ${name}" padding_right="10">
+      <sprite width="22" height="22" src_ext="${icon}" parent_color="ignore" />
+    </Button>
+  </template>
+
+  <!-- Set chips, shown in the drawer tab when "sets on watch" is enabled -->
+  <template name="Set">
+    <Button macro="chip" id="set_${idx}" _press="::SetToggle ${idx}" tooltip="WATCH.SWITCH_TO_SET" tooltip_side="top">
+      <sprite width="16" height="16" src_builtin="watch/set2.svg" />
+      <label text="${display}" size="13" weight="bold" />
+    </Button>
+  </template>
+
+  <!-- Caelestia dashboard clock: hours over minutes, split by a dot divider -->
+  <template name="Clock">
+    <div flex_direction="row" align_items="center" gap="16" padding_left="4">
+      <div flex_direction="column" align_items="center">
+        <label text="23" _source="clock" _display="~hour_fmt" color="secondary" size="~clock_size" weight="bold" />
+        <div flex_direction="row" gap="5" padding_top="2" padding_bottom="2">
+          <rectangle width="5" height="5" round="100%" color="outline" />
+          <rectangle width="5" height="5" round="100%" color="primary" />
+          <rectangle width="5" height="5" round="100%" color="outline" />
+        </div>
+        <label text="41" _source="clock" _display="%M" color="primary" size="~clock_size" />
+      </div>
+      <div flex_direction="column" gap="8">
+        <div flex_direction="column" gap="2">
+          <label text="PM" _source="clock" _display="%p" color="primary" size="13" weight="bold" display="~ampm_display" />
+          <label text="Thursday" _source="clock" _display="dow" color="on_background_contrast" size="18" weight="bold" />
+          <label text="15 October" _source="clock" _display="%e %B" color="on_background_variant" size="14" />
+        </div>
+        <!-- Timezones come from `timezones:` in ~/.config/wayvr/conf.d -->
+        <div flex_direction="column" gap="4">
+          <div flex_direction="row" gap="8" align_items="center">
+            <label text="06:41" _source="clock" _display="time" _timezone="0" color="secondary" size="14" weight="bold" />
+            <label text="Paris" _source="clock" _display="name" _timezone="0" color="on_background_variant" size="13" />
+          </div>
+          <div flex_direction="row" gap="8" align_items="center">
+            <label text="00:41" _source="clock" _display="time" _timezone="1" color="secondary" size="14" weight="bold" />
+            <label text="New York" _source="clock" _display="name" _timezone="1" color="on_background_variant" size="13" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Media controls (filled in by media/media-sync.ts through wayvrctl) -->
+  <macro name="media_button"
+    width="32" height="32" round="100%"
+    border="0" color="background_variant" border_color="background_variant"
+    hover_color="tertiary" hover_border_color="tertiary"
+    sticky_color="primary" sticky_border_color="primary" />
+
+  <!-- One tappable seek segment. media-sync colors seek_N to show progress;
+       tapping runs seek.sh to jump to that fraction of the track. -->
+  <template name="Seek">
+    <Button width="11" height="18" round="100%" border="0"
+      color="background(opacity-0.0)" border_color="background(opacity-0.0)"
+      hover_color="tertiary(opacity-0.6)" hover_border_color="tertiary(opacity-0.0)"
+      _press="::ShellExec @REPO@/media/seek.sh ${at}">
+      <rectangle id="seek_${i}" width="7" height="5" round="100%" color="background_variant" />
+    </Button>
+  </template>
+
+  <!-- One tappable volume segment (player's own volume, via MPRIS). -->
+  <template name="Vol">
+    <Button width="11" height="16" round="100%" border="0"
+      color="background(opacity-0.0)" border_color="background(opacity-0.0)"
+      hover_color="tertiary(opacity-0.6)" hover_border_color="tertiary(opacity-0.0)"
+      _press="::ShellExec @REPO@/media/volume.sh ${at}">
+      <rectangle id="vol_${i}" width="7" height="5" round="100%" color="background_variant" />
+    </Button>
+  </template>
+
+  <elements>
+    <!-- padding="32" leaves room for tooltips -->
+    <div padding="32" interactable="0" flex_direction="column" align_items="center">
+
+      <!-- Drawer tab: overlay (monitor) / set chips, melting out of the panel's top edge -->
+      <div flex_direction="row" align_items="flex_end" margin_bottom="-1" interactable="0">
+        <sprite width="18" height="18" src="m3/fillet-left.svg" margin_right="-1" color="background_contrast" />
+        <div flex_direction="column">
+          <!-- squares off the tab's bottom corners so it joins the panel -->
+          <rectangle position="absolute" width="100%" height="20" margin_top="20" color="background_contrast" />
+          <rectangle color="background_contrast" round="100%" height="40" padding="5" align_items="center">
+            <rectangle color="background" round="100%" padding="0" flex_direction="row" align_items="center">
+              <div id="panels_root" flex_direction="row" gap="4">
+                <!-- Populated at runtime; examples for uidev -->
+                <Screen idx="0" display="D1" name="DP-1" />
+                <Screen idx="1" display="H1" name="HDMI-A-1" />
+              </div>
+              <div id="sets_root" flex_direction="row" gap="4" display="none">
+                <!-- Populated at runtime; examples for uidev -->
+                <Set idx="0" display="1" />
+                <Set idx="1" display="2" />
+              </div>
+            </rectangle>
+          </rectangle>
+        </div>
+        <sprite width="18" height="18" src="m3/fillet-right.svg" margin_left="-1" color="background_contrast" />
+      </div>
+
+      <!-- Panel body -->
+      <rectangle color="background_contrast" round="~r_panel" padding="12" flex_direction="column" gap="10" min_width="380">
+        <div flex_direction="row" gap="12" align_items="center" justify_content="space_between">
+          <div id="clock_root">
+            <Clock />
+          </div>
+
+          <rectangle color="background" round="~r_card" padding="8" flex_direction="column">
+            <!-- Two columns, so extra trackers add width rather than height -->
+            <div id="devices_root" interactable="0" flex_direction="row" flex_wrap="wrap" gap="6" max_width="166">
+              <!-- Populated at runtime; examples for uidev -->
+              <Hmd idx="0" />
+              <LeftHand idx="1" />
+              <RightHand idx="2" />
+              <Tracker idx="3" />
+            </div>
+          </rectangle>
+        </div>
+
+        <!-- Media: hidden by media-sync while nothing is playing -->
+        <rectangle id="media_row" color="background" round="~r_card" padding="6" padding_right="8" flex_direction="row" gap="10" align_items="center">
+          <!-- Album art: rounded square, with a note icon behind it as the fallback -->
+          <rectangle width="58" height="58" round="7" color="background_variant" align_items="center" justify_content="center">
+            <sprite id="media_art_fallback" width="24" height="24" src="m3/music-note.svg" color="on_background_variant" />
+            <image id="media_art" position="absolute" width="58" height="58" round="7" src="m3/blank.png" />
+          </rectangle>
+
+          <div flex_direction="column" flex_grow="1" gap="1" min_width="0">
+            <label id="media_title" text="Nothing playing" color="on_background_contrast" size="13" weight="bold" />
+            <div flex_direction="row" gap="6" align_items="center">
+              <label id="media_artist" text="" color="on_background_variant" size="11" flex_grow="1" />
+              <label id="media_time" text="" color="on_background_variant" size="11" />
+            </div>
+            <div flex_direction="row" align_items="center" margin_left="-2">
+              <Seek i="0" at="0.00" /><Seek i="1" at="0.05" /><Seek i="2" at="0.10" /><Seek i="3" at="0.15" />
+              <Seek i="4" at="0.20" /><Seek i="5" at="0.25" /><Seek i="6" at="0.30" /><Seek i="7" at="0.35" />
+              <Seek i="8" at="0.40" /><Seek i="9" at="0.45" /><Seek i="10" at="0.50" /><Seek i="11" at="0.55" />
+              <Seek i="12" at="0.60" /><Seek i="13" at="0.65" /><Seek i="14" at="0.70" /><Seek i="15" at="0.75" />
+              <Seek i="16" at="0.80" /><Seek i="17" at="0.85" /><Seek i="18" at="0.90" /><Seek i="19" at="0.95" />
+            </div>
+            <div flex_direction="row" align_items="center" margin_left="-2">
+              <Button width="16" height="16" round="100%" border="0" margin_right="2"
+                color="background(opacity-0.0)" border_color="background(opacity-0.0)"
+                hover_color="tertiary(opacity-0.6)" hover_border_color="tertiary(opacity-0.0)"
+                _press="::ShellExec @REPO@/media/volume.sh 0" tooltip_str="Mute">
+                <sprite id="media_vol_icon" width="13" height="13" src="m3/volume.svg" color="on_background_variant" />
+              </Button>
+              <Vol i="0" at="0.05" /><Vol i="1" at="0.10" /><Vol i="2" at="0.15" /><Vol i="3" at="0.20" />
+              <Vol i="4" at="0.25" /><Vol i="5" at="0.30" /><Vol i="6" at="0.35" /><Vol i="7" at="0.40" />
+              <Vol i="8" at="0.45" /><Vol i="9" at="0.50" /><Vol i="10" at="0.55" /><Vol i="11" at="0.60" />
+              <Vol i="12" at="0.65" /><Vol i="13" at="0.70" /><Vol i="14" at="0.75" /><Vol i="15" at="0.80" />
+              <Vol i="16" at="0.85" /><Vol i="17" at="0.90" /><Vol i="18" at="0.95" /><Vol i="19" at="1.00" />
+            </div>
+          </div>
+
+          <div flex_direction="row" gap="4" align_items="center">
+            <Button macro="media_button" _press="::ShellExec playerctl previous">
+              <sprite width="18" height="18" src="m3/skip-previous.svg" />
+            </Button>
+            <Button macro="media_button" width="40" height="40" color="primary" border_color="primary" hover_color="primary(rgb-add-0.12)" hover_border_color="primary" _press="::ShellExec playerctl play-pause">
+              <sprite id="media_play_icon" width="20" height="20" src="m3/play.svg" />
+            </Button>
+            <Button macro="media_button" _press="::ShellExec playerctl next">
+              <sprite width="18" height="18" src="m3/skip-next.svg" />
+            </Button>
+          </div>
+        </rectangle>
+      </rectangle>
+
+      <!-- Toolbar tab: melts out of the panel's bottom edge, mirroring the top tab -->
+      <div flex_direction="row" align_items="flex_start" margin_top="-1" interactable="0">
+        <sprite width="18" height="18" src="m3/fillet-bottom-left.svg" margin_right="-1" color="background_contrast" />
+        <div flex_direction="column">
+          <!-- squares off the tab's top corners so it joins the panel -->
+          <rectangle position="absolute" width="100%" height="22" color="background_contrast" />
+          <rectangle color="background_contrast" round="100%" height="44" padding="5" align_items="center">
+            <rectangle color="background" round="100%" flex_direction="row" gap="2" align_items="center">
+              <Button id="btn_dashboard" macro="icon_button" _press="::DashToggle" tooltip="WATCH.DASHBOARD" tooltip_side="bottom">
+                <sprite width="19" height="19" src_builtin="watch/wayvr_dashboard_mono.svg" />
+              </Button>
+              <Button id="btn_keyboard" macro="icon_button" _press="::OverlayToggle kbd" tooltip="EDIT_MODE.KEYBOARD" tooltip_side="bottom">
+                <sprite width="19" height="19" src_builtin="watch/keyboard.svg" />
+              </Button>
+              <Button id="btn_edit_mode" macro="icon_button" _press="::EditToggle" tooltip="WATCH.EDIT_MODE" tooltip_side="bottom">
+                <sprite width="19" height="19" src_builtin="watch/edit.svg" />
+              </Button>
+              <Button macro="icon_button" _press="::PlayspaceRecenter" tooltip="WATCH.RECENTER" tooltip_side="bottom">
+                <sprite width="19" height="19" src_builtin="watch/recenter.svg" />
+              </Button>
+              <Button macro="icon_button" _press="::PlayspaceFixFloor" tooltip="WATCH.FIX_FLOOR" tooltip_side="bottom">
+                <sprite width="19" height="19" src_builtin="watch/fix-floor.svg" />
+              </Button>
+            </rectangle>
+          </rectangle>
+        </div>
+        <sprite width="18" height="18" src="m3/fillet-bottom-right.svg" margin_left="-1" color="background_contrast" />
+      </div>
+    </div>
+  </elements>
+</layout>

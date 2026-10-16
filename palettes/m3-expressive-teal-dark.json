@@ -1,0 +1,19 @@
+{
+  "primary": "#80d5d4",
+  "on_primary": "#003737",
+  "secondary": "#d2c6a1",
+  "on_secondary": "#373016",
+  "tertiary": "#eac248",
+  "on_tertiary": "#3d2f00",
+  "danger": "#ffb3ae",
+  "on_danger": "#68000c",
+  "background": "#001d21",
+  "on_background": "#c3edf3",
+  "background_variant": "#002b2f",
+  "on_background_variant": "#89b2b8",
+  "background_contrast": "#001113",
+  "on_background_contrast": "#c3edf3",
+  "outline": "#254e53",
+  "shadow": "#000000",
+  "highlight": "#ffffff"
+}

@@ -1,0 +1,19 @@
+#!/usr/bin/openrc-run
+# OpenRC user service: mirrors the active media player into the WayVR watch.
+# Installed by m3-wayvr/install.sh.
+
+description="Show playerctl media info on the WayVR watch"
+
+depend() {
+    need dbus
+}
+
+# playerctl talks to players over the session bus
+export DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RUNTIME_DIR}/bus"
+
+supervisor=supervise-daemon
+command="/usr/bin/bun"
+# @REPO@ is replaced by install.sh with this project's path
+command_args="@REPO@/media/media-sync.ts"
+output_log="${XDG_RUNTIME_DIR}/wayvr-media.log"
+error_log="${XDG_RUNTIME_DIR}/wayvr-media.log"

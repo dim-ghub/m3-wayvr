@@ -1,0 +1,19 @@
+#!/usr/bin/openrc-run
+# OpenRC user service: regenerates the WayVR palette whenever Caelestia's
+# wallpaper scheme changes. Installed by m3-wayvr/install.sh.
+
+description="Sync the WayVR palette with Caelestia's color scheme"
+
+depend() {
+    need dbus
+}
+
+# notify-send needs the session bus
+export DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RUNTIME_DIR}/bus"
+
+supervisor=supervise-daemon
+command="/usr/bin/bun"
+# @REPO@ is replaced by install.sh with this project's path
+command_args="@REPO@/sync-caelestia.ts --watch"
+output_log="${XDG_RUNTIME_DIR}/wayvr-caelestia-sync.log"
+error_log="${XDG_RUNTIME_DIR}/wayvr-caelestia-sync.log"

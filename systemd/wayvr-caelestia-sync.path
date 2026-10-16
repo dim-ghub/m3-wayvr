@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch Caelestia's color scheme for WayVR theme sync
+
+[Path]
+PathChanged=%h/.local/state/caelestia/scheme.json
+Unit=wayvr-caelestia-sync.service
+
+[Install]
+WantedBy=default.target
