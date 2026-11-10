@@ -2,6 +2,8 @@
 
 A Material 3 Expressive theme for [WayVR](https://github.com/wayvr-org/wayvr) that matches the [Caelestia](https://github.com/caelestia-dots/shell) shell. Its colors follow your wallpaper, and it adds media controls to the watch. Tested against WayVR 26.8.0.
 
+It also has a second look, [TTY](#tty), after [KiiteShell](https://github.com/Kiite-Org/KiiteShell)'s: the same layouts drawn like a terminal.
+
 <p align="center"><img src="renders/watch.png" alt="Watch: overlay tab, clock, device batteries, media card, toolbar tab" width="520"></p>
 
 <p align="center"><img src="renders/keyboard.png" alt="Keyboard with pill keys and a drawer-tab bar" width="760"></p>
@@ -22,6 +24,26 @@ The renders are drawn by WayVR's own renderer (its `uidev` testbed with an offsc
 - **Keyboard:** pill-shaped keys with primary-tinted modifiers. The overlay bar is a drawer tab on the keyboard's top edge.
 - **Toasts:** a Caelestia notification card with an icon badge and a thin primary countdown bar.
 - **Colors:** generated from Caelestia's `~/.local/state/caelestia/scheme.json` and regenerated on every wallpaper change. Preset palettes (violet, blue, teal, coral; dark and light) are available if you don't use Caelestia.
+
+## TTY
+
+`./install.sh --tty` installs the TTY look instead (from `theme-tty/`):
+
+- **Boxes, not surfaces:** everything sits on one near-black ground, divided by 1px borders. Corners are square, the dashboard's too (`ui_round_multiplier: 0`).
+- **Titles in the border:** the watch, keyboard and toast have their title set into their top edge, with a block cursor. Boxes inside them, like the watch's media card, have a title and no cursor.
+- **Tabs:** the overlay chips and the toolbar are small boxes standing on the panel's edge. Their buttons are words (`dash`, `kbd`, `edit`, `recenter`, `floor`); overlays read `[D1]`.
+- **Reverse video:** a toggled overlay or tool, and the play button, are drawn in the accent with dark text. Hover is TTY's row tint.
+- **Bars in cells:** seek and volume are 20 cells each, `░` while empty and one solid accent run where filled. The media controls are `|<`, `||`/`|>` and `>|`.
+- **Colors:** TTY's fixed neutrals from KiiteShell (`#0b0e0d` ground, `#3f4d49` borders) with the wallpaper's primary and secondary as accents, from `sync-caelestia.ts --tty`. Preset accents: `./install.sh --tty --preset teal` (or `violet`, `blue`, `coral`). TTY is dark only.
+
+What it can't copy from KiiteShell:
+
+- **No monospace face.** Layouts can't pick a font, and WayVR's text engine asks for Open Sans whatever fontconfig says, so labels stay proportional.
+- **The cursor doesn't blink and titles don't type in.** WayVR has no timers in layouts and no animation curves to tune beyond `ui_animation_speed`.
+- **Keys still bounce on hover.** WayVR's keyboard code scales a hovered key; layouts can't turn that off.
+- **No bars for batteries or the clock in block digits.** WayVR hands layouts the battery as text and the clock as formatted text.
+
+`render/render.py` renders the TTY look too, as `renders/tty-*.png`.
 
 ## Install
 
@@ -46,7 +68,7 @@ What it does:
 
   On OpenRC (Artix, Gentoo) both are user services in `~/.config/rc/init.d/`, logging to `$XDG_RUNTIME_DIR/<name>.log`. On systemd the palette sync is a user path unit; on anything else, the installer prints the commands to autostart.
 
-To use a preset palette instead of the wallpaper sync, run `./install.sh --preset teal dark`. To uninstall, run `./install.sh --uninstall`.
+To use a preset palette instead of the wallpaper sync, run `./install.sh --preset teal dark`. For the TTY look, add `--tty` (see [TTY](#tty)). To uninstall either look, run `./install.sh --uninstall`.
 
 ### After a wallpaper change
 
@@ -102,7 +124,8 @@ These come from WayVR's UI toolkit, not from the theme:
 ```bash
 bun install
 bun sync-caelestia.ts --print                    # preview the synced palette
-bun generate.ts --seed "#3F51B5" --name indigo   # extra preset palettes
+bun sync-caelestia.ts --print --tty              # ... and its TTY version
+bun generate.ts --seed "#3F51B5" --name indigo   # extra preset palettes (M3 and TTY)
 UIDEV=/path/to/uidev python3 render/render.py    # regenerate renders/
 ```
 

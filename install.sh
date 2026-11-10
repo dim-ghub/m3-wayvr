@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
-# Installs the Material 3 Expressive "Caelestia drawer" theme into ~/.config/wayvr.
+# Installs the Material 3 Expressive "Caelestia drawer" theme into ~/.config/wayvr,
+# or with --tty the TTY look (KiiteShell's: square boxes, borders, text cells).
 #
 #   ./install.sh                       # layouts + palette synced to your Caelestia wallpaper
 #   ./install.sh --preset teal dark    # layouts + a fixed preset palette, no sync
+#   ./install.sh --tty                 # TTY layouts + TTY palette synced to your wallpaper
+#   ./install.sh --tty --preset teal   # TTY layouts + a fixed TTY preset (always dark)
 #   ./install.sh --uninstall
 #
 # The watcher is an OpenRC user service on OpenRC systems (Artix, Gentoo),
@@ -38,6 +41,22 @@ RC_MEDIA=wayvr-media
 # The layouts' corner radii are written for this multiplier (r_panel 14 -> 28px).
 ROUND_MULTIPLIER=2.0
 GRADIENT_INTENSITY=0.0   # M3 surfaces are flat tonal fills
+THEME_SRC="$HERE/theme"
+SYNC_ARGS=""
+
+ARGS=()
+TTY=0
+for arg in "$@"; do
+  if [[ $arg == --tty ]]; then TTY=1; else ARGS+=("$arg"); fi
+done
+set -- "${ARGS[@]+"${ARGS[@]}"}"
+if (( TTY )); then
+  # The TTY layouts draw everything as text and boxes; the image fallback is all they borrow
+  THEME_SRC="$HERE/theme-tty"
+  LAYOUTS=(gui/watch.xml gui/keyboard.xml gui/toast.xml m3/blank.png)
+  ROUND_MULTIPLIER=0.0   # square corners, the dashboard's too
+  SYNC_ARGS="--tty"
+fi
 
 if [[ "${1:-}" == "--uninstall" ]]; then
   if [[ $INIT == openrc ]]; then
@@ -53,16 +72,24 @@ if [[ "${1:-}" == "--uninstall" ]]; then
     systemctl --user daemon-reload
   fi
   for f in "${LAYOUTS[@]}"; do rm -fv "$THEME_DIR/$f"; done
-  rm -fv "$PALETTE_DIR"/m3-expressive-*.json "$PALETTE_DIR/caelestia.json" "$DROPIN"
+  rm -fv "$PALETTE_DIR"/m3-expressive-*.json "$PALETTE_DIR"/tty-*.json "$PALETTE_DIR/caelestia.json" "$DROPIN"
   echo "Removed. If an M3 palette is still selected in the dashboard, pick another one there."
   exit 0
 fi
 
 if [[ "${1:-}" == "--preset" ]]; then
-  PALETTE="m3-expressive-${2:-violet}-${3:-dark}.json"
+  if (( TTY )); then
+    PALETTE="tty-${2:-teal}.json"
+  else
+    PALETTE="m3-expressive-${2:-violet}-${3:-dark}.json"
+  fi
   if [[ ! -f "$HERE/palettes/$PALETTE" ]]; then
     echo "No such palette: $PALETTE" >&2
-    ls "$HERE/palettes" | sed 's/^m3-expressive-//; s/\.json$//; s/-/ /; s/^/  /' >&2
+    if (( TTY )); then
+      ls "$HERE/palettes" | sed -n 's/^tty-\(.*\)\.json$/  \1/p' >&2
+    else
+      ls "$HERE/palettes" | grep '^m3-expressive-' | sed 's/^m3-expressive-//; s/\.json$//; s/-/ /; s/^/  /' >&2
+    fi
     exit 1
   fi
   SYNC=0
@@ -77,17 +104,19 @@ fi
 # Layouts
 for f in "${LAYOUTS[@]}"; do
   mkdir -p "$(dirname "$THEME_DIR/$f")"
-  # Back up files that aren't ours (ours carry the "Material 3 Expressive" header or are fillets)
-  if [[ -f "$THEME_DIR/$f" ]] && ! cmp -s "$HERE/theme/$f" "$THEME_DIR/$f" \
-     && [[ $f == gui/* ]] && ! grep -q "Material 3 Expressive" "$THEME_DIR/$f"; then
+  src="$THEME_SRC/$f"
+  [[ -f $src ]] || src="$HERE/theme/$f"
+  # Back up files that aren't ours (ours carry the "Material 3 Expressive" or "TTY for WayVR" header)
+  if [[ -f "$THEME_DIR/$f" ]] && ! cmp -s "$src" "$THEME_DIR/$f" \
+     && [[ $f == gui/* ]] && ! grep -q -e "Material 3 Expressive" -e "TTY for WayVR" "$THEME_DIR/$f"; then
     cp "$THEME_DIR/$f" "$THEME_DIR/$f.bak"
     echo "Backed up your existing $f to $f.bak"
   fi
-  cp "$HERE/theme/$f" "$THEME_DIR/$f"
+  cp "$src" "$THEME_DIR/$f"
 done
 # The seek segments call media/seek.sh from this checkout
 sed -i "s#@REPO@#$HERE#g" "$THEME_DIR/gui/watch.xml"
-echo "Installed layouts into $THEME_DIR"
+echo "Installed $( (( TTY )) && echo TTY || echo M3) layouts into $THEME_DIR"
 
 # WayVR doesn't tell layouts about the 12h setting, so bake it into the watch.
 # conf.d files load alphabetically and later ones win, like WayVR does.
@@ -126,15 +155,15 @@ fi
 
 # Palettes
 mkdir -p "$PALETTE_DIR" "$CONF_D"
-cp "$HERE"/palettes/m3-expressive-*.json "$PALETTE_DIR/"
+cp "$HERE"/palettes/m3-expressive-*.json "$HERE"/palettes/tty-*.json "$PALETTE_DIR/"
 if (( SYNC )); then
   (cd "$HERE" && [[ -d node_modules ]] || bun install --silent)
-  bun "$HERE/sync-caelestia.ts"
+  bun "$HERE/sync-caelestia.ts" $SYNC_ARGS
 
   case $INIT in
     openrc)
       mkdir -p "$RC_DIR"
-      sed "s#@REPO@#$HERE#g" "$HERE/openrc/$RC_SVC" > "$RC_DIR/$RC_SVC"
+      sed "s#@REPO@#$HERE#g; s#@ARGS@#$SYNC_ARGS#g" "$HERE/openrc/$RC_SVC" > "$RC_DIR/$RC_SVC"
       chmod +x "$RC_DIR/$RC_SVC"
       rc-update --user add "$RC_SVC" default
       rc-service --user "$RC_SVC" restart
@@ -143,14 +172,14 @@ if (( SYNC )); then
     systemd)
       mkdir -p "$UNIT_DIR"
       cp "$HERE/systemd/wayvr-caelestia-sync.path" "$UNIT_DIR/"
-      sed "s#@REPO@#$HERE#g" "$HERE/systemd/wayvr-caelestia-sync.service" > "$UNIT_DIR/wayvr-caelestia-sync.service"
+      sed "s#@REPO@#$HERE#g; s#@ARGS@#$SYNC_ARGS#g" "$HERE/systemd/wayvr-caelestia-sync.service" > "$UNIT_DIR/wayvr-caelestia-sync.service"
       systemctl --user daemon-reload
       systemctl --user enable --now wayvr-caelestia-sync.path
       echo "Wallpaper sync enabled (systemctl --user status wayvr-caelestia-sync.path)"
       ;;
     *)
       echo "No OpenRC or systemd user session found. Keep the palette in sync by autostarting:"
-      echo "  bun $HERE/sync-caelestia.ts --watch"
+      echo "  bun $HERE/sync-caelestia.ts --watch $SYNC_ARGS"
       ;;
   esac
 fi
@@ -173,7 +202,7 @@ else
 fi
 
 cat > "$DROPIN" <<EOF
-# Material 3 Expressive theme for WayVR (installed by m3-wayvr/install.sh)
+# $( (( TTY )) && echo "TTY for WayVR" || echo "Material 3 Expressive theme for WayVR") (installed by m3-wayvr/install.sh)
 color_palette: "$PALETTE"
 ui_round_multiplier: $ROUND_MULTIPLIER
 ui_gradient_intensity: $GRADIENT_INTENSITY

@@ -14,6 +14,6 @@ export DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RUNTIME_DIR}/bus"
 supervisor=supervise-daemon
 command="/usr/bin/bun"
 # @REPO@ is replaced by install.sh with this project's path
-command_args="@REPO@/sync-caelestia.ts --watch"
+command_args="@REPO@/sync-caelestia.ts --watch @ARGS@"
 output_log="${XDG_RUNTIME_DIR}/wayvr-caelestia-sync.log"
 error_log="${XDG_RUNTIME_DIR}/wayvr-caelestia-sync.log"

@@ -4,6 +4,7 @@
 //   bun sync-caelestia.ts            # write ~/.config/wayvr/palettes/caelestia.json
 //   bun sync-caelestia.ts --print    # print the palette instead
 //   bun sync-caelestia.ts --watch    # sync now, then again on every scheme change
+//   ... --tty                        # the TTY look's palette: TTY's neutrals, the scheme's accents
 //
 // install.sh keeps it running on wallpaper changes: an OpenRC user service
 // runs --watch (openrc/), or a systemd path unit runs one-shot syncs (systemd/).
@@ -17,6 +18,7 @@ import {
 import { existsSync, mkdirSync, readFileSync, renameSync, watch, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { ttyPalette } from "./tty";
 import { forInstalledWayvr, wayvrSessionEnv } from "./wayvr-compat";
 
 const HOME = homedir();
@@ -28,6 +30,8 @@ const PALETTE_PATH = join(CONFIG, "wayvr/palettes/caelestia.json");
 
 // Same source green as generate.ts; harmonized toward the wallpaper's primary.
 const SUCCESS_SOURCE = "#2E9E4F";
+
+const TTY = process.argv.includes("--tty");
 
 type Scheme = { mode: "dark" | "light"; colours: Record<string, string> };
 
@@ -41,6 +45,11 @@ function toPalette({ mode, colours }: Scheme) {
   const hex = (argb: number) => hexFromArgb(argb).toLowerCase();
 
   const success = TonalPalette.fromInt(Blend.harmonize(argbFromHex(SUCCESS_SOURCE), argbFromHex(c("primary"))));
+  // TTY is dark whatever the scheme's mode, so its accents take dark-mode tones
+  if (TTY) {
+    const accent = (role: string) => hex(TonalPalette.fromInt(argbFromHex(c(role))).tone(80));
+    return ttyPalette({ primary: accent("primary"), secondary: accent("secondary"), success: hex(success.tone(80)) });
+  }
   // wgui uses `tertiary` as the hover fill for every Button and keyboard key,
   // so it needs to be a container tone (like Caelestia's tonal buttons), not
   // the near-white accent tone Caelestia's tertiary role often is.

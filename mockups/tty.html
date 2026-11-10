@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TTY WayVR Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* KiiteShell's TTY ink (crates/kiiteshell-common/src/look.rs). TTY is a dark
+   look by definition, so light mode keeps the same ground. */
+:root{
+  --ground:#0b0e0d; --raised:#0f1312; --row:#16211f; --tab:#1f2a28;
+  --border:#2f3a37; --border-strong:#3f4d49;
+  --text:#cfd8d5; --bright:#e7eeec; --dim:#7d8a86; --variant:#9aa6a2;
+  --faint:#4a5653; --track:#34413e; --error:#e5838a;
+  --primary:#7fd6cb; --secondary:#d2c6a1; --tertiary:#eac248;
+  --primary-container:color-mix(in srgb,var(--primary) 18%,var(--ground));
+  --cell:8.4px; --rise:10px;
+}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--ground:#0b0e0d}}
+:root[data-theme="dark"]{--ground:#0b0e0d}
+*{box-sizing:border-box}
+html,body{background:#070908}
+body{margin:0;color:var(--text);font:14px/20px "JetBrains Mono","Symbols Nerd Font Mono",ui-monospace,monospace;padding:32px 16px 48px;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+::selection{background:var(--primary);color:var(--ground)}
+.page{max-width:1000px;margin:0 auto;display:grid;gap:40px}
+.page>*{min-width:0}
+.prompt{color:var(--dim)} .prompt b{color:var(--primary);font-weight:400}
+h1{font-size:14px;font-weight:700;color:var(--bright);margin:4px 0 2px}
+.lead{color:var(--dim);margin:0;max-width:72ch}
+.lead code{color:var(--text)}
+.accents{display:flex;flex-wrap:wrap;gap:4px 18px;margin-top:14px}
+.accents button{color:var(--dim)} .accents button:hover{color:var(--bright)}
+.accents button[aria-pressed="true"]{color:var(--primary)}
+.sw{display:inline-block;width:var(--cell);height:12px;vertical-align:-1px;margin-left:6px}
+.label{color:var(--faint);margin-bottom:18px}
+.label::before{content:"# "}
+
+/* A box with its title set into its top edge */
+.box{position:relative;background:var(--ground);border:1px solid var(--border-strong);padding:calc(var(--rise) + 10px) 14px 12px}
+.box>.title{position:absolute;top:calc(-1 * var(--rise) - 1px);left:12px;height:20px;line-height:20px;padding:0 8px;background:var(--ground);color:var(--primary);white-space:pre}
+.box.quiet{border-color:var(--border)}
+/* a box repaints in four hard frames, 60ms apart */
+.paint{animation:paint .18s steps(4,jump-start) both}
+@keyframes paint{from{clip-path:inset(-24px -24px 100% -24px)}to{clip-path:inset(-24px -24px -40px -24px)}}
+
+/* Drawer tabs: a small box sharing the panel's edge, the edge broken under it */
+.tab{position:relative;z-index:1;margin:0 auto;width:max-content;max-width:100%;flex-wrap:wrap;background:var(--ground);border:1px solid var(--border-strong);padding:6px 8px;display:flex;gap:6px;align-items:center}
+.tab.top{border-bottom-color:var(--ground);margin-bottom:-1px}
+.tab.bottom{border-top-color:var(--ground);margin-top:-1px}
+
+.chip{padding:0 6px;height:24px;line-height:24px;color:var(--text);white-space:pre}
+.chip:hover{background:var(--row);color:var(--bright)}
+.chip[aria-pressed="true"]{background:var(--primary-container);color:var(--primary)}
+.chip .b{color:var(--faint)} .chip[aria-pressed="true"] .b{color:var(--primary)}
+.sep{color:var(--faint)}
+
+/* Watch */
+.watch{width:min(100%,600px);margin:0 auto}
+.watch>.box{display:grid;gap:22px}
+.top-row{display:grid;grid-template-columns:auto 1fr auto;gap:20px;align-items:start}
+.clock{display:flex;gap:6px;align-items:center}
+.digit{display:grid;grid-template-columns:repeat(3,10px);grid-auto-rows:10px}
+.digit i{display:block}
+.colon{display:grid;grid-template-rows:repeat(5,10px);width:10px}
+.colon i{display:block}
+.hours i.on{background:var(--secondary)} .mins i.on{background:var(--primary)}
+.colon i.on{background:var(--dim)} .colon.off i.on{background:transparent}
+.date .ampm{color:var(--primary)} .date .day{color:var(--bright);font-weight:700}
+.date .dim{color:var(--dim)} .tz{margin-top:6px} .tz b{color:var(--secondary);font-weight:400}
+.devs{display:grid;gap:2px;padding-top:14px}
+.dev{display:flex;gap:9px;align-items:center;white-space:pre}
+.dev .n{color:var(--dim);width:calc(var(--cell)*5)}
+.dev .v{width:calc(var(--cell)*4);text-align:right}
+.dev.low .v{color:var(--error)} .dev.chg .v{color:var(--primary)}
+
+.bar{display:inline-flex;align-items:center;white-space:pre;flex:none}
+.bar .run{height:16px;background:var(--primary)}
+.bar .rest{color:var(--track)}
+.seg{display:inline-flex;position:relative}
+.seg .hit{position:absolute;inset:-4px 0;display:flex}
+.seg .hit span{flex:1;cursor:pointer}
+.seg .hit span:hover{background:color-mix(in srgb,var(--bright) 10%,transparent)}
+.media{display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:center}
+.art{line-height:10px;font-size:14px;letter-spacing:0;white-space:pre;color:var(--primary);user-select:none}
+.meta{display:grid;gap:4px;min-width:0}
+.meta .head{display:flex;justify-content:space-between;gap:12px}
+.meta .song{color:var(--bright);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta .artist{color:var(--dim)} .meta .time{color:var(--dim);white-space:pre}
+.line{display:flex;gap:9px;align-items:center}
+.line .k{color:var(--dim);width:calc(var(--cell)*4);flex:none}
+button.k:hover{color:var(--bright)}
+.ctl{display:flex;gap:4px;margin-top:4px}
+.ctl button{padding:0 6px;height:24px;line-height:24px;white-space:pre}
+.ctl button:hover{background:var(--row);color:var(--bright)}
+.ctl .play{background:var(--primary);color:var(--ground)}
+.ctl .play:hover{background:var(--primary);color:var(--ground);outline:1px solid var(--bright)}
+
+/* Keyboard */
+.kbd-wrap{overflow-x:auto;padding:12px 0 4px;margin:-12px 0 -4px}
+.kbd{width:max-content;margin:0 auto}
+.kbd .box{display:grid;gap:4px;padding:14px}
+.krow{display:flex;gap:4px}
+.key{--u:1;width:calc(var(--u) * 46px + (var(--u) - 1) * 4px);height:42px;border:1px solid var(--border);display:flex;align-items:center;justify-content:center;gap:6px;color:var(--text);white-space:pre}
+.key .s{color:var(--faint)}
+.key.mod{color:var(--primary)}
+.key:hover{background:var(--row);border-color:var(--border-strong);color:var(--bright)}
+.key.mod:hover{color:var(--primary)}
+.key.down,.key.latched{background:var(--primary);border-color:var(--primary);color:var(--ground)}
+.key.down .s,.key.latched .s{color:var(--ground)}
+.kbd .tab .clock-t{color:var(--primary);margin-left:6px} .kbd .tab .clock-t span{color:var(--dim)}
+.typed{margin-top:10px;color:var(--dim);white-space:pre;min-height:20px;text-align:center}
+.typed b{color:var(--bright);font-weight:400}
+
+/* Toast */
+.toast{width:min(100%,560px);margin:0 auto}
+.toast .box{display:grid;gap:6px}
+.toast .h{color:var(--bright);font-weight:700}
+.toast .body{color:var(--variant)}
+.toast .foot{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:6px}
+.toast .foot button{color:var(--dim)} .toast .foot button:hover{color:var(--bright)}
+
+/* Notes */
+.notes{display:grid;gap:6px;max-width:80ch}
+.notes p{margin:0;display:grid;grid-template-columns:calc(var(--cell)*6) 1fr}
+.notes .ok{color:var(--primary)} .notes .warn{color:var(--tertiary)} .notes .no{color:var(--error)}
+.notes code{color:var(--bright)}
+
+@media (max-width:560px){
+  .top-row{grid-template-columns:auto 1fr}
+  .devs{grid-column:1/-1;padding-top:0}
+  .media{grid-template-columns:1fr}
+  .art{display:none}
+}
+</style></head>
+<body>
+<div class="page">
+
+<header>
+  <div class="prompt">dim@wayvr <b>~/Projects/m3-wayvr</b> $ wayvr --theme tty</div>
+  <h1>TTY for WayVR — mockup</h1>
+  <p class="lead">KiiteShell's TTY look carried over to the WayVR watch, keyboard and toast: one monospace face, square boxes with their titles set into the border, no shadows or rounding, bars drawn in text, and motion that redraws in four hard frames. The accent still follows the wallpaper; everything else sits on TTY's fixed neutrals.</p>
+  <div class="accents" id="accents"></div>
+</header>
+
+<section>
+  <div class="label">watch</div>
+  <div class="watch paint" data-paint>
+    <div class="tab top">
+      <button class="chip" aria-pressed="true"><span class="b">[</span>D1<span class="b">]</span></button>
+      <button class="chip" aria-pressed="false"><span class="b">[</span>H1<span class="b">]</span></button>
+      <button class="chip" aria-pressed="false"><span class="b">[</span>kbd<span class="b">]</span></button>
+    </div>
+    <div class="box">
+      <span class="title" data-title="watch"></span>
+      <div class="top-row">
+        <div class="clock" id="clock"></div>
+        <div class="date">
+          <div class="ampm">pm</div>
+          <div class="day">thursday</div>
+          <div class="dim">15 october</div>
+          <div class="tz"><b>06:41</b> <span class="dim">paris</span><br><b>00:41</b> <span class="dim">new_york</span></div>
+        </div>
+        <div class="devs" id="devs"></div>
+      </div>
+      <div class="box quiet">
+        <span class="title">now playing</span>
+        <div class="media">
+          <div class="art" id="art" aria-hidden="true"></div>
+          <div class="meta">
+            <div class="head"><span class="song">night drive</span><span class="time" id="time"></span></div>
+            <div class="artist">aurora lane</div>
+            <div class="line"><span class="k">seek</span><span class="seg" id="seek"></span></div>
+            <div class="line"><button class="k" id="mute">vol</button><span class="seg" id="vol"></span></div>
+            <div class="ctl">
+              <button title="previous">|&lt;</button>
+              <button class="play" id="play" title="play / pause"> || </button>
+              <button title="next">&gt;|</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="tab bottom">
+      <button class="chip">dash</button><span class="sep">│</span>
+      <button class="chip" aria-pressed="false">kbd</button><span class="sep">│</span>
+      <button class="chip" aria-pressed="false">edit</button><span class="sep">│</span>
+      <button class="chip">recenter</button><span class="sep">│</span>
+      <button class="chip">floor</button>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="label">keyboard</div>
+  <div class="kbd-wrap">
+    <div class="kbd paint" data-paint>
+      <div class="tab top">
+        <button class="chip" aria-pressed="true"><span class="b">[</span>~<span class="b">]</span></button><span class="sep">│</span>
+        <button class="chip" aria-pressed="false"><span class="b">[</span>D1<span class="b">]</span></button>
+        <button class="chip" aria-pressed="false"><span class="b">[</span>D2<span class="b">]</span></button>
+        <button class="chip" aria-pressed="false"><span class="b">[</span>D3<span class="b">]</span></button><span class="sep">│</span>
+        <button class="chip" aria-pressed="false"><span class="b">[</span>set 1<span class="b">]</span></button>
+        <button class="chip" aria-pressed="false"><span class="b">[</span>set 2<span class="b">]</span></button>
+        <button class="chip">menu</button>
+        <span class="clock-t">21:41 <span>thu</span></span>
+      </div>
+      <div class="box" id="kbd"><span class="title" data-title="keyboard"></span></div>
+      <div class="typed" id="typed"></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="label">toast</div>
+  <div class="toast paint" data-paint>
+    <div class="box">
+      <span class="title" data-title="wayvr"></span>
+      <div class="h">wayvr colors updated</div>
+      <div class="body">re-pick caelestia.json in dashboard › settings › color palette, or restart wayvr.</div>
+      <div class="foot"><span id="countdown"></span><button id="replay">[replay]</button></div>
+    </div>
+  </div>
+</section>
+
+<section class="notes">
+  <div class="label">what carries over to wayvr 26.8.0</div>
+  <p><span class="ok">[ok]</span><span>Square corners and 1px borders: <code>round="0"</code> plus <code>ui_round_multiplier: 0</code>; palette slots map to TTY's ink.</span></p>
+  <p><span class="ok">[ok]</span><span>Text bars: the seek and volume rows are already 20 tappable segments, so each becomes one █ or ░ cell.</span></p>
+  <p><span class="ok">[ok]</span><span>Accent from the wallpaper: the Caelestia sync keeps writing <code>primary</code> / <code>secondary</code>; the neutrals become fixed.</span></p>
+  <p><span class="warn">[??]</span><span>Titles in the border: needs a label with a ground fill placed over the edge. Untested whether wgui lets a child overlap its parent's border.</span></p>
+  <p><span class="warn">[??]</span><span>Block-digit clock: no per-digit cells from <code>_source="clock"</code>; would fall back to a large plain label.</span></p>
+  <p><span class="no">[no]</span><span>Monospace face: layouts can't pick a typeface, so labels use the system sans-serif unless fontconfig's default is pointed at a mono face.</span></p>
+  <p><span class="no">[no]</span><span>Typed-in titles, blinking cursors and four-frame redraws: WayVR only exposes <code>ui_animation_speed</code>.</span></p>
+</section>
+
+</div>
+<script>
+const $ = (s) => document.querySelector(s);
+const root = document.documentElement;
+const CELL = 8.4;
+
+// Accents: the Caelestia-synced one by default, then the dark presets' primaries
+const ACCENTS = [
+  ["kiite", "#7fd6cb", "#d2c6a1", "#eac248"],
+  ["teal", "#80d5d4", "#d2c6a1", "#eac248"],
+  ["violet", "#cfbdfe", "#bbcbb2", "#9bd67e"],
+  ["blue", "#a0cafd", "#b6ccb9", "#83d995"],
+  ["coral", "#ffb5a1", "#b5c9d7", "#67d3ff"],
+];
+const accents = $("#accents");
+ACCENTS.forEach(([name, p, s, t], i) => {
+  const b = document.createElement("button");
+  b.setAttribute("aria-pressed", i === 0);
+  b.innerHTML = `${i === 0 ? "[x]" : "[ ]"} ${name}<span class="sw" style="background:${p}"></span>`;
+  b.onclick = () => {
+    root.style.setProperty("--primary", p);
+    root.style.setProperty("--secondary", s);
+    root.style.setProperty("--tertiary", t);
+    [...accents.children].forEach((c, j) => {
+      c.setAttribute("aria-pressed", j === i);
+      c.firstChild.textContent = (j === i ? "[x]" : "[ ]") + " " + ACCENTS[j][0];
+    });
+    repaint();
+  };
+  accents.append(b);
+});
+
+// The titles of surfaces that open (watch, keyboard, toast) print in bursts over a
+// slow link, two cells of noise ahead of a block cursor that keeps blinking after.
+// Cards inside a surface have their title simply there, with no cursor.
+const BURSTS = [2, 1, 3, 0, 2, 3, 1, 2, 0, 3, 2, 1];
+const burst = (t) => BURSTS[(t * 7 + 3) % 12];
+const NOISE = "#$%&@*+=?<>/\\|01";
+let born = performance.now();
+const cursorOn = () => Math.floor(performance.now() / 530) % 2 === 0;
+function typed(title, now) {
+  const ticks = Math.floor((now - born) / (1000 / 15)) + 1;
+  let printed = 0;
+  for (let t = 0; t < ticks && printed < title.length; t++) printed += burst(t);
+  printed = Math.min(printed, title.length);
+  if (printed === title.length) return title + (cursorOn() ? "█" : " ");
+  let out = title.slice(0, printed);
+  for (let i = printed; i < Math.min(printed + 2, title.length); i++)
+    out += title[i] === " " ? " " : NOISE[(i * 7 + ticks * 13) % NOISE.length];
+  return out + "█";
+}
+const titles = [...document.querySelectorAll("[data-title]")];
+function drawTitles(now) {
+  for (const el of titles) el.textContent = typed(el.dataset.title, now);
+  $("#clock .colon")?.classList.toggle("off", !cursorOn());
+  requestAnimationFrame(drawTitles);
+}
+requestAnimationFrame(drawTitles);
+
+function repaint() {
+  born = performance.now();
+  document.querySelectorAll("[data-paint]").forEach((el) => {
+    el.classList.remove("paint");
+    void el.offsetWidth;
+    el.classList.add("paint");
+  });
+}
+
+// Clock in block digits: hours in secondary, minutes in primary
+const FONT = {
+  0: ["###", "# #", "# #", "# #", "###"], 1: ["## ", " # ", " # ", " # ", "###"],
+  2: ["###", "  #", "###", "#  ", "###"], 3: ["###", "  #", " ##", "  #", "###"],
+  4: ["# #", "# #", "###", "  #", "  #"], 5: ["###", "#  ", "###", "  #", "###"],
+  6: ["###", "#  ", "###", "# #", "###"], 7: ["###", "  #", "  #", "  #", "  #"],
+  8: ["###", "# #", "###", "# #", "###"], 9: ["###", "# #", "###", "  #", "###"],
+};
+const digit = (d, cls) => `<div class="digit ${cls}">${FONT[d].join("").split("").map((c) => `<i class="${c === "#" ? "on" : ""}"></i>`).join("")}</div>`;
+$("#clock").innerHTML = digit(0, "hours") + digit(9, "hours") +
+  `<div class="colon"><i></i><i class="on"></i><i></i><i class="on"></i><i></i></div>` +
+  digit(4, "mins") + digit(1, "mins");
+
+// A bar in text: `cells` wide, filled to `f` in half cells; one solid run, then ░
+function textBar(f, cells) {
+  const halves = Math.round(Math.max(0, Math.min(1, f)) * cells * 2);
+  const full = Math.floor(halves / 2), half = halves % 2;
+  return `<span class="bar"><span class="run" style="width:${(full + half / 2) * CELL}px"></span><span class="rest">${"░".repeat(cells - full - half)}</span></span>`;
+}
+
+// Device batteries
+const DEVS = [["hmd", 0.82], ["l.ctl", 0.64, "chg"], ["r.ctl", 0.12], ["trk", 0.93]];
+$("#devs").innerHTML = DEVS.map(([n, f, st]) => {
+  const cls = st || (f < 0.2 ? "low" : "");
+  return `<div class="dev ${cls}"><span class="n">${n}</span>${textBar(f, 8)}<span class="v">${st === "chg" ? "+" : ""}${Math.round(f * 100)}%</span></div>`;
+}).join("");
+
+// Album art, dithered into shade blocks
+const SHADES = " ░▒▓█";
+let art = "";
+for (let y = 0; y < 8; y++) {
+  for (let x = 0; x < 12; x++) {
+    const v = 0.55 * Math.exp(-((x - 4) ** 2 + (y - 4) ** 2) / 14) + 0.5 * (x / 11) * (1 - y / 9) + 0.12 * Math.sin(x * 1.7 + y * 2.3);
+    art += SHADES[Math.max(0, Math.min(4, Math.round(v * 4)))];
+  }
+  art += "\n";
+}
+$("#art").textContent = art;
+
+// Seek and volume: 20 and 14 tappable cells, like the layout's segments
+const TOTAL = 232;
+let pos = 84, vol = 0.72, muted = false, playing = true;
+const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+function seg(el, f, cells, on) {
+  el.innerHTML = textBar(f, cells) + `<span class="hit">${"<span></span>".repeat(cells)}</span>`;
+  [...el.querySelectorAll(".hit span")].forEach((s, i) => (s.onclick = () => on((i + 1) / cells)));
+}
+function drawMedia() {
+  seg($("#seek"), pos / TOTAL, 20, (f) => { pos = f * TOTAL; drawMedia(); });
+  seg($("#vol"), muted ? 0 : vol, 14, (f) => { vol = f; muted = false; drawMedia(); });
+  $("#mute").textContent = muted ? "mute" : "vol";
+  $("#time").textContent = `${fmt(pos)} / ${fmt(TOTAL)}`;
+  $("#play").textContent = playing ? " || " : " |> ";
+}
+$("#mute").onclick = () => { muted = !muted; drawMedia(); };
+$("#play").onclick = () => { playing = !playing; drawMedia(); };
+setInterval(() => { if (playing) { pos = (pos + 1) % TOTAL; drawMedia(); } }, 1000);
+drawMedia();
+
+// Chips toggle
+document.querySelectorAll(".chip[aria-pressed]").forEach((c) =>
+  c.addEventListener("click", () => c.setAttribute("aria-pressed", c.getAttribute("aria-pressed") !== "true")));
+
+// Keyboard
+const K = (l, o = {}) => ({ l, ...o });
+const nums = "1234567890".split(""), shifted = "!@#$%^&*()".split("");
+const ROWS = [
+  [K("esc", { mod: 1 }), ...nums.map((n, i) => K(n, { s: shifted[i] })), K("bksp", { mod: 1, u: 2 })],
+  [K("tab", { mod: 1, u: 1.5 }), ..."qwertyuiop".split("").map((c) => K(c)), K("\\", { s: "|", u: 1.5 })],
+  [K("caps", { mod: 1, u: 1.75, latch: 1 }), ..."asdfghjkl".split("").map((c) => K(c)), K("enter", { mod: 1, u: 2.25 })],
+  [K("shift", { mod: 1, u: 2.25, latch: 1 }), ..."zxcvbnm".split("").map((c) => K(c)), K(",", { s: "<" }), K(".", { s: ">" }), K("↑", { mod: 1 }), K("shift", { mod: 1, u: 1.75, latch: 1 })],
+  [K("ctrl", { mod: 1, u: 1.5, latch: 1 }), K("super", { mod: 1, u: 1.25 }), K("alt", { mod: 1, u: 1.25, latch: 1 }), K("", { u: 5.75, space: 1 }), K("alt", { mod: 1, u: 1.25, latch: 1 }), K("←", { mod: 1 }), K("↓", { mod: 1 }), K("→", { mod: 1 })],
+];
+const kbd = $("#kbd");
+let buf = "", shift = false;
+for (const row of ROWS) {
+  const r = document.createElement("div");
+  r.className = "krow";
+  for (const k of row) {
+    const b = document.createElement("button");
+    b.className = "key" + (k.mod ? " mod" : "");
+    b.style.setProperty("--u", k.u || 1);
+    b.innerHTML = (k.s ? `<span class="s">${k.s}</span>` : "") + (k.space ? "space" : k.l);
+    if (k.space) b.style.color = "var(--faint)";
+    b.onclick = () => {
+      if (k.latch) {
+        b.classList.toggle("latched");
+        if (k.l === "shift" || k.l === "caps") shift = b.classList.contains("latched");
+        return;
+      }
+      // pressed for one hard frame, no fade
+      b.classList.add("down");
+      setTimeout(() => b.classList.remove("down"), 60);
+      if (k.space) buf += " ";
+      else if (k.l === "bksp") buf = buf.slice(0, -1);
+      else if (k.l === "enter") buf = "";
+      else if (!k.mod) buf += shift ? (k.s || k.l.toUpperCase()) : k.l;
+      buf = buf.slice(-48);
+      drawTyped();
+    };
+    r.append(b);
+  }
+  kbd.append(r);
+}
+function drawTyped() { $("#typed").innerHTML = `&gt; <b>${buf.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</b>${cursorOn() ? "█" : " "}`; }
+setInterval(drawTyped, 530);
+drawTyped();
+
+// Toast countdown drains in half cells, then the toast is gone
+const LIFE = 6000, CELLS = 24;
+let shownAt = performance.now();
+function drawCountdown() {
+  const left = 1 - (performance.now() - shownAt) / LIFE;
+  $("#countdown").innerHTML = left > 0 ? textBar(left, CELLS) : `<span style="color:var(--faint)">[dismissed]</span>`;
+  if (left > 0) setTimeout(drawCountdown, LIFE / CELLS / 2);
+}
+$("#replay").onclick = () => { shownAt = performance.now(); repaint(); drawCountdown(); };
+drawCountdown();
+</script>
+</body></html>

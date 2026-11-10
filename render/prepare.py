@@ -6,7 +6,7 @@ data: batteries, clock, media, keys and toast text are all filled in by WayVR
 at runtime. This writes copies of theme/ with static sample data for
 render.py to render.
 
-    python3 render/prepare.py OUT_DIR
+    python3 render/prepare.py OUT_DIR [--tty]
 """
 
 import re
@@ -39,24 +39,29 @@ def watch(xml: str, out: Path) -> str:
     xml = xml.replace('text="23" _source="clock"', 'text="09" _source="clock"')
     # batteries: pass a static percentage through the device templates
     xml = re.sub(r'<label _source="battery" _device="\$\{idx\}"', '<label text="${pct}"', xml)
-    xml = re.sub(r'<Device idx="\$\{idx\}" icon="', '<Device idx="${idx}" pct="${pct}" icon="', xml)
+    xml = re.sub(r'<Device idx="\$\{idx\}" (icon|name)="', r'<Device idx="${idx}" pct="${pct}" \1="', xml)
     for tag, pct in (("Hmd", "82%"), ("LeftHand", "64%"), ("RightHand", "71%"), ("Tracker", "93%")):
         xml = xml.replace(f'<{tag} idx="', f'<{tag} pct="{pct}" idx="')
     # media card
-    xml = xml.replace('text="Nothing playing"', 'text="Night Drive"')
+    xml = xml.replace('text="Nothing playing"', 'text="Night Drive"').replace('text="nothing playing"', 'text="Night Drive"')
     xml = xml.replace('<label id="media_artist" text=""', '<label id="media_artist" text="Aurora Lane"')
     xml = xml.replace('<label id="media_time" text=""', '<label id="media_time" text="1:24 / 3:52"')
     xml = xml.replace('src="m3/blank.png"', f'src="{out / "sample-art.png"}"')
     xml = xml.replace('id="media_art_fallback"', 'id="media_art_fallback" display="none"')
     xml = xml.replace('id="media_play_icon" width="20" height="20" src="m3/play.svg"',
                       'id="media_play_icon" width="20" height="20" src="m3/pause.svg"')
+    xml = xml.replace('id="media_play_icon" text="|&gt;"', 'id="media_play_icon" text="||"')
     # progress: seek 35%, volume 70%
     xml = xml.replace('id="seek_${i}" width="7" height="5" round="100%" color="background_variant"',
                       'id="seek_${i}" width="7" height="5" round="100%" color="${c}"')
     xml = xml.replace('id="vol_${i}" width="7" height="5" round="100%" color="background_variant"',
                       'id="vol_${i}" width="7" height="5" round="100%" color="${c}"')
-    xml = re.sub(r'<Seek i="(\d+)"', lambda m: f'<Seek c="{"primary" if int(m[1]) < 7 else "background_variant"}" i="{m[1]}"', xml)
-    xml = re.sub(r'<Vol i="(\d+)"', lambda m: f'<Vol c="{"primary" if int(m[1]) < 14 else "background_variant"}" i="{m[1]}"', xml)
+    # TTY: an empty cell is transparent over its ░
+    xml = re.sub(r'id="(seek|vol)_\$\{i\}" position="absolute" width="9" height="16" color="#00000000"',
+                 r'id="\1_${i}" position="absolute" width="9" height="16" color="${c}"', xml)
+    empty = "#00000000" if TTY else "background_variant"
+    xml = re.sub(r'<Seek i="(\d+)"', lambda m: f'<Seek c="{"primary" if int(m[1]) < 7 else empty}" i="{m[1]}"', xml)
+    xml = re.sub(r'<Vol i="(\d+)"', lambda m: f'<Vol c="{"primary" if int(m[1]) < 14 else empty}" i="{m[1]}"', xml)
     return xml
 
 
@@ -80,13 +85,12 @@ def keyboard(xml: str) -> str:
             shift = f' text_shift="{attr(SHIFTED.get(text, ""))}"' if tpl == "KeySymbol" else ""
             keys.append(f'<{tpl} id="k{r}_{c}" text="{attr(text)}"{shift} width="{units * 60:g}" height="60" />')
         rows.append('        <div flex_direction="row">' + "".join(keys) + "</div>")
-    xml = xml.replace('<rectangle id="keyboard_root" color="background_contrast" round="~r_panel" flex_direction="column" padding="12">\n      </rectangle>',
-                      '<rectangle id="keyboard_root" color="background_contrast" round="~r_panel" flex_direction="column" padding="12">\n'
-                      + "\n".join(rows) + "\n      </rectangle>")
-    xml = xml.replace('<div id="panels_root" gap="6" align_items="center">\n            </div>',
-                      '<div id="panels_root" gap="6" align_items="center"><Screen idx="0" display="D1" name="DP-1" /><Screen idx="1" display="D2" name="DP-2" /><Screen idx="2" display="D3" name="DP-3" /></div>')
-    xml = xml.replace('<div id="sets_root" flex_direction="row" gap="6" align_items="center">\n              </div>',
-                      '<div id="sets_root" flex_direction="row" gap="6" align_items="center"><Set idx="0" display="1" /><Set idx="1" display="2" /></div>')
+    xml = re.sub(r'(<rectangle id="keyboard_root"[^>]*>)\s*(</rectangle>)',
+                 lambda m: m[1] + "\n" + "\n".join(rows) + "\n      " + m[2], xml)
+    xml = re.sub(r'(<div id="panels_root"[^>]*>)\s*(</div>)',
+                 r'\1<Screen idx="0" display="D1" name="DP-1" /><Screen idx="1" display="D2" name="DP-2" /><Screen idx="2" display="D3" name="DP-3" />\2', xml)
+    xml = re.sub(r'(<div id="sets_root"[^>]*>)\s*(</div>)',
+                 r'\1<Set idx="0" display="1" /><Set idx="1" display="2" />\2', xml)
     xml = xml.replace('text="23:59" _source="clock"', 'text="9:41 PM" _source="clock"')
     return xml
 
@@ -98,10 +102,15 @@ def toast(xml: str) -> str:
     return xml
 
 
+TTY = "--tty" in sys.argv
+
+
 def main():
     out = Path(sys.argv[1]).resolve()
     shutil.rmtree(out, ignore_errors=True)
     shutil.copytree(ROOT / "theme", out)
+    if TTY:
+        shutil.copytree(ROOT / "theme-tty", out, dirs_exist_ok=True)
     sample_art(out / "sample-art.png")
     gui = out / "gui"
     (gui / "watch.xml").write_text(watch((gui / "watch.xml").read_text(), out))

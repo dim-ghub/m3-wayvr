@@ -57,6 +57,20 @@ const fmt = (us: number) => {
   return h ? `${h}:${String(m).padStart(2, "0")}:${sec}` : `${m}:${sec}`;
 };
 
+// Which look the installed watch is: TTY draws its controls as text and its
+// bars as cells over a ░ track, so an empty cell is transparent, not a color.
+let lookCache = { mtime: 0, tty: false };
+function isTty() {
+  try {
+    const file = join(CONFIG, "wayvr/theme/gui/watch.xml");
+    const mtime = statSync(file).mtimeMs;
+    if (mtime !== lookCache.mtime) lookCache = { mtime, tty: readFileSync(file, "utf8").includes("TTY for WayVR") };
+  } catch {
+    // no custom watch: WayVR's own, which has no media card anyway
+  }
+  return lookCache.tty;
+}
+
 // Seek bar colors follow the active WayVR palette (kept in sync with the wallpaper).
 let paletteCache = { mtime: 0, file: "", fill: "#9bd0cc", track: "#192120" };
 function seekColors() {
@@ -158,14 +172,18 @@ async function tick() {
   queue(lines, "media_title", "set-text", t.title);
   queue(lines, "media_artist", "set-text", t.artist);
   queue(lines, "media_time", "set-text", t.lengthUs ? `${fmt(t.positionUs)} / ${fmt(t.lengthUs)}` : "");
-  queue(lines, "media_play_icon", "set-image", join(THEME, t.status === "Playing" ? "pause.svg" : "play.svg"));
+  const tty = isTty();
+  const playing = t.status === "Playing";
+  if (tty) queue(lines, "media_play_icon", "set-text", playing ? "||" : "|>");
+  else queue(lines, "media_play_icon", "set-image", join(THEME, playing ? "pause.svg" : "play.svg"));
 
   const art = await artPath(t.artUrl);
   if (art) queue(lines, "media_art", "set-image", art);
   queue(lines, "media_art", "set-visible", art ? "1" : "0");
   queue(lines, "media_art_fallback", "set-visible", art ? "0" : "1");
 
-  const { fill, track } = seekColors();
+  const colors = seekColors();
+  const fill = colors.fill, track = tty ? "#00000000" : colors.track;
   const filled = t.lengthUs ? Math.round((t.positionUs / t.lengthUs) * SEGMENTS) : 0;
   for (let i = 0; i < SEGMENTS; i++) queue(lines, `seek_${i}`, "set-color", i < filled ? fill : track);
 
@@ -173,7 +191,8 @@ async function tick() {
   const vol = t.volume ?? 0;
   const volFilled = Math.round(vol * SEGMENTS);
   for (let i = 0; i < SEGMENTS; i++) queue(lines, `vol_${i}`, "set-color", i < volFilled ? fill : track);
-  queue(lines, "media_vol_icon", "set-image", join(THEME, vol > 0 ? "volume.svg" : "volume-off.svg"));
+  if (tty) queue(lines, "media_vol_icon", "set-text", vol > 0 ? "vol" : "mute");
+  else queue(lines, "media_vol_icon", "set-image", join(THEME, vol > 0 ? "volume.svg" : "volume-off.svg"));
 
   flush(lines);
 }

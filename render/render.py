@@ -27,14 +27,20 @@ UIDEV = os.environ.get("UIDEV") or sys.exit("set UIDEV to the patched uidev bina
 SCALE = os.environ.get("RENDER_SCALE", "2")
 MARGIN = 24  # px of transparent border kept around the trimmed render
 
-# (output name, layout, palette); "caelestia" = palette synced from the current wallpaper
+# (output name, layout, palette, look); "caelestia" = palette synced from the current wallpaper
 SHOTS = [
-    ("watch", "watch", "caelestia"),
-    ("keyboard", "keyboard", "caelestia"),
-    ("toast", "toast", "caelestia"),
-    ("watch-violet", "watch", "m3-expressive-violet-dark.json"),
-    ("watch-coral", "watch", "m3-expressive-coral-dark.json"),
+    ("watch", "watch", "caelestia", "m3"),
+    ("keyboard", "keyboard", "caelestia", "m3"),
+    ("toast", "toast", "caelestia", "m3"),
+    ("watch-violet", "watch", "m3-expressive-violet-dark.json", "m3"),
+    ("watch-coral", "watch", "m3-expressive-coral-dark.json", "m3"),
+    ("tty-watch", "watch", "caelestia", "tty"),
+    ("tty-keyboard", "keyboard", "caelestia", "tty"),
+    ("tty-toast", "toast", "caelestia", "tty"),
+    ("tty-watch-violet", "watch", "tty-violet.json", "tty"),
 ]
+# the corner multiplier each look's installer sets
+ROUND = {"m3": "2.0", "tty": "0.0"}
 
 
 def trim(path: Path):
@@ -50,15 +56,19 @@ def main():
     OUT.mkdir(exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
-        theme = tmp / "theme"
-        subprocess.run([sys.executable, ROOT / "render/prepare.py", theme], check=True, stdout=subprocess.DEVNULL)
-        caelestia = tmp / "caelestia.json"
-        caelestia.write_bytes(subprocess.check_output(["bun", ROOT / "sync-caelestia.ts", "--print"]))
+        themes, caelestia = {}, {}
+        for look in ROUND:
+            themes[look] = tmp / f"theme-{look}"
+            flag = ["--tty"] if look == "tty" else []
+            subprocess.run([sys.executable, ROOT / "render/prepare.py", themes[look], *flag], check=True, stdout=subprocess.DEVNULL)
+            caelestia[look] = tmp / f"caelestia-{look}.json"
+            caelestia[look].write_bytes(subprocess.check_output(["bun", ROOT / "sync-caelestia.ts", "--print", *flag]))
 
-        for name, layout, palette in SHOTS:
+        for name, layout, palette, look in SHOTS:
             out = OUT / f"{name}.png"
-            pal = caelestia if palette == "caelestia" else ROOT / "palettes" / palette
-            env = dict(os.environ, TESTBED=f"gui/{layout}.xml", PALETTE=str(pal), ROUND="2.0",
+            theme = themes[look]
+            pal = caelestia[look] if palette == "caelestia" else ROOT / "palettes" / palette
+            env = dict(os.environ, TESTBED=f"gui/{layout}.xml", PALETTE=str(pal), ROUND=ROUND[look],
                        RENDER_PNG=str(out), RENDER_SCALE=SCALE, RUST_LOG="error")
             subprocess.run([UIDEV], cwd=theme, env=env, check=True, timeout=60,
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

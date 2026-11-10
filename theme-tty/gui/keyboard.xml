@@ -1,0 +1,250 @@
+<layout>
+  <!--
+    TTY for WayVR: KiiteShell's TTY look on the keyboard. Square keys with
+    1px borders on one ground, modifiers in the accent, the overlay bar as a
+    tab standing on the panel's edge.
+
+    Hover (tertiary: TTY's row, text brightened) and press (a highlight
+    border: the accent) are applied by WayVR's code from the palette. So is
+    the hover's small bounce, which no layout can turn off.
+
+    Literal neutrals, fixed in TTY: the strong border #3f4d49, key borders
+    #2f3a37, dim text #7d8a86, faint decoration #4a5653.
+  -->
+  <theme>
+    <var key="text_size" value="18" />
+  </theme>
+
+  <!-- Letter keys -->
+  <macro name="keycap_rect"
+    margin="2" width="100%" overflow="hidden" box_sizing="border_box"
+    border_color="#2f3a37" border="1" round="0" color="background_contrast"
+    align_items="center" justify_content="center" />
+
+  <!-- Modifier / special keys: the same box, their legend in the accent -->
+  <macro name="modcap_rect"
+    margin="2" width="100%" overflow="hidden" box_sizing="border_box"
+    border_color="#2f3a37" border="1" round="0" color="background_contrast"
+    align_items="center" justify_content="center" />
+
+  <macro name="keycap_div"
+    width="${width}" height="${height}" min_width="${width}" min_height="${height}" max_width="${width}" max_height="${height}"
+  />
+
+  <!-- A flat cell of text: ground, row on hover, reverse video when toggled -->
+  <macro name="chip"
+    height="36" min_width="36" padding_left="8" padding_right="8" gap="6" round="0"
+    border="0" color="background_contrast" border_color="background_contrast"
+    hover_color="tertiary" hover_border_color="tertiary"
+    sticky_color="primary" sticky_border_color="primary" />
+
+  <template name="Sep">
+    <label text="│" color="#4a5653" size="16" />
+  </template>
+
+  <!-- A box's title, set into its top edge (see watch.xml) -->
+  <template name="Title">
+    <div flex_direction="row" height="24" padding_left="14" margin_bottom="-12" interactable="0">
+      <rectangle color="background_contrast" padding_left="8" padding_right="8" align_items="center" gap="1">
+        <label text="${text}" color="primary" size="16" />
+        <label text="${cursor}" color="primary" size="16" />
+      </rectangle>
+    </div>
+  </template>
+
+  <!-- The keyboard is built from the xkb keymap. These templates style the keycaps. -->
+
+  <template name="KeySpecial">
+    <div macro="keycap_div">
+      <rectangle id="${id}" macro="modcap_rect">
+        <sprite color="primary" width="20" height="20" src_builtin="keyboard/${text}.svg" />
+      </rectangle>
+    </div>
+  </template>
+
+  <template name="KeyLetter">
+    <div macro="keycap_div">
+      <rectangle id="${id}" macro="keycap_rect">
+        <label text="${text}" size="~text_size" color="on_background" />
+      </rectangle>
+    </div>
+  </template>
+
+  <template name="KeyLetterAltGr">
+    <div macro="keycap_div">
+      <rectangle id="${id}" macro="keycap_rect" gap="4">
+        <label text="${text}" size="~text_size" color="on_background" />
+        <label color="#7d8a86" text="${text_altgr}" size="14" />
+      </rectangle>
+    </div>
+  </template>
+
+  <template name="KeySymbol">
+    <div macro="keycap_div">
+      <rectangle id="${id}" macro="keycap_rect" gap="4">
+        <label color="#7d8a86" text="${text_shift}" size="14" />
+        <label text="${text}" size="~text_size" color="on_background" />
+      </rectangle>
+    </div>
+  </template>
+
+  <template name="KeySymbolAltGr">
+    <div macro="keycap_div">
+      <rectangle id="${id}" macro="keycap_rect" flex_direction="row" flex_wrap="wrap" padding="4">
+        <div width="50%" height="50%" align_items="center" justify_content="center">
+          <label color="#7d8a86" text="${text_shift}" size="14" />
+        </div>
+        <div width="50%" height="50%" align_items="center" justify_content="center" />
+        <div width="50%" height="50%" align_items="center" justify_content="center">
+          <label text="${text}" size="~text_size" color="on_background" />
+        </div>
+        <div width="50%" height="50%" align_items="center" justify_content="center">
+          <label color="#7d8a86" text="${text_altgr}" size="14" />
+        </div>
+      </rectangle>
+    </div>
+  </template>
+
+  <template name="KeyOther">
+    <div macro="keycap_div">
+      <rectangle id="${id}" macro="modcap_rect">
+        <label text="${text}" size="15" color="primary" />
+      </rectangle>
+    </div>
+  </template>
+
+  <blueprint name="menu_app">
+    <context_menu >
+      <cell translation="BAR.TOGGLE_VISIBILITY" _press="::OverlayToggle ${name}" />
+      <cell translation="BAR.RESET_POSITION" _press="::OverlayReset ${name}" />
+      <cell translation="BAR.CLOSE_APP" _press="::WvrOverlayTermProcess ${name}" />
+      <cell translation="BAR.FORCE_CLOSE_APP" _press="::WvrOverlayKillProcess ${name}" />
+    </context_menu>
+  </blueprint>
+
+  <template name="App">
+    <Button macro="chip" id="overlay_${idx}" tooltip_str="${name}" _context_name="${name}" _press_left="::ContextMenuOpen menu_app" _press_right="::OverlayToggle ${name}">
+      <sprite width="20" height="20" src_ext="${icon}" parent_color="ignore" />
+    </Button>
+  </template>
+
+  <blueprint name="menu_screen">
+    <context_menu >
+      <cell translation="BAR.TOGGLE_VISIBILITY" _press="::OverlayToggle ${name}" />
+      <cell translation="BAR.RESET_POSITION" _press="::OverlayReset ${name}" />
+    </context_menu>
+  </blueprint>
+
+  <template name="Screen">
+    <Button macro="chip" id="overlay_${idx}" tooltip_str="${name}" _context_name="${name}" _press_left="::ContextMenuOpen menu_screen" _press_right="::OverlayToggle ${name}">
+      <label text="[${display}]" size="16" />
+    </Button>
+  </template>
+
+  <blueprint name="menu_panel">
+    <context_menu >
+      <cell translation="BAR.TOGGLE_VISIBILITY" _press="::OverlayToggle ${name}" />
+      <cell translation="BAR.RESET_POSITION" _press="::OverlayReset ${name}" />
+      <cell translation="BAR.RELOAD_FROM_DISK" _press="::CustomOverlayReload ${name}" />
+    </context_menu>
+  </blueprint>
+
+  <template name="Panel">
+    <Button macro="chip" id="overlay_${idx}" tooltip_str="${name}" _context_name="${name}" _press_left="::ContextMenuOpen menu_panel" _press_right="::OverlayToggle ${name}">
+      <sprite width="20" height="20" src="${icon}" />
+    </Button>
+  </template>
+
+  <blueprint name="menu_mirror">
+    <context_menu >
+      <cell translation="BAR.TOGGLE_VISIBILITY" _press="::OverlayToggle ${name}" />
+      <cell translation="BAR.RESET_POSITION" _press="::OverlayReset ${name}" />
+      <cell translation="BAR.CLOSE_OVERLAY" _press="::OverlayDrop ${name}" />
+    </context_menu>
+  </blueprint>
+
+  <template name="Mirror">
+    <Button macro="chip" id="overlay_${idx}" tooltip_str="${name}" _context_name="${name}" _press_left="::ContextMenuOpen menu_mirror" _press_right="::OverlayToggle ${name}">
+      <label text="[${display}]" size="16" />
+    </Button>
+  </template>
+
+  <template name="Passthru">
+    <Button macro="chip" id="overlay_${idx}" tooltip_str="${name}" _context_name="${name}" _press_left="::ContextMenuOpen menu_mirror" _press_right="::OverlayToggle ${name}">
+      <label text="[${display}]" size="16" />
+    </Button>
+  </template>
+
+  <blueprint name="menu_handsfree">
+    <context_menu >
+      <cell translation="BAR.HANDSFREE.NONE" _press="::HandsfreeMode None" _press2="::ContextMenuClose" />
+      <cell translation="BAR.HANDSFREE.HMD" _press="::HandsfreeMode Hmd" _press2="::ContextMenuClose" skip="${openvr}" />
+      <cell translation="BAR.HANDSFREE.HMD_ONLY" _press="::HandsfreeMode HmdOnly" _press2="::ContextMenuClose" />
+      <cell translation="BAR.HANDSFREE.EYE_TRACKING" _press="::HandsfreeMode EyeTracking" _press2="::ContextMenuClose" skip="${openvr}" />
+      <cell translation="BAR.HANDSFREE.EYE_ONLY" _press="::HandsfreeMode EyeTrackingOnly" _press2="::ContextMenuClose" />
+    </context_menu>
+  </blueprint>
+
+  <blueprint name="menu_burger">
+    <context_menu >
+      <cell translation="BAR.EDIT_MODE_TOGGLE" _press="::EditToggle" _press2="::ContextMenuClose" />
+      <cell translation="BAR.HANDSFREE.TITLE" _press="::ContextMenuOpen menu_handsfree" />
+      <cell translation="BAR.ADD_MIRROR" _press="::NewMirror" skip="${not_wayland}" />
+      <cell translation="BAR.ADD_PASSTHRU" _press="::NewPassthru" skip="${not_passthru}" />
+      <cell translation="BAR.ADD_NEW_SET" _press="::AddSet" />
+      <cell translation="BAR.DELETE_CURRENT_SET" _press="::DeleteSet" />
+    </context_menu>
+  </blueprint>
+
+  <template name="Set">
+    <Button macro="chip" id="set_${idx}" _press="::SetSwitch ${idx}" tooltip="WATCH.SWITCH_TO_SET" tooltip_side="bottom">
+      <label text="[set ${display}]" size="16" />
+    </Button>
+  </template>
+
+  <template name="Clock">
+    <div flex_direction="row" gap="8" align_items="center" padding_left="6" padding_right="8">
+      <label text="23:59" _source="clock" _display="time" size="16" weight="bold" color="primary" />
+      <label text="Thu" _source="clock" _display="dow_short" size="14" color="#7d8a86" />
+    </div>
+  </template>
+
+  <elements>
+    <div flex_direction="column" align_items="center" interactable="0">
+
+      <!-- Bar: a box standing on the keyboard's edge. -13: the keyboard's
+           title rises 12px above its edge, and the two edges share a line. -->
+      <rectangle color="background_contrast" border="1" border_color="#3f4d49" round="0"
+        padding="4" flex_direction="row" align_items="center" gap="4" margin_bottom="-13">
+        <Button macro="chip" id="btn_dashboard" _press="::DashToggle" color="primary" border_color="primary" hover_color="primary(rgb-add-0.12)" hover_border_color="primary">
+          <label text="[~]" size="16" weight="bold" />
+        </Button>
+        <Sep />
+        <div id="panels_root" gap="2" align_items="center">
+        </div>
+        <div id="apps_root" gap="2" align_items="center" skip="${openvr}">
+        </div>
+        <Sep />
+        <div id="tray_root" flex_direction="row" gap="2" align_items="center">
+          <div id="sets_root" flex_direction="row" gap="2" align_items="center">
+          </div>
+          <Button macro="chip" _press="::ContextMenuOpen menu_burger">
+            <label text="menu" size="16" />
+          </Button>
+          <div id="clock_root">
+            <Clock />
+          </div>
+        </div>
+      </rectangle>
+
+      <div flex_direction="column_reverse">
+        <rectangle id="keyboard_root" color="background_contrast" border="1" border_color="#3f4d49" round="0"
+          flex_direction="column" padding="12" padding_top="22">
+        </rectangle>
+        <!-- the keyboard opens, so its title has a cursor (steady: WayVR can't blink it) -->
+        <Title text="keyboard" cursor="█" />
+      </div>
+    </div>
+  </elements>
+
+</layout>

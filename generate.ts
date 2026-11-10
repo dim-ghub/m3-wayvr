@@ -9,6 +9,9 @@
 //   bun generate.ts                         # rebuild the bundled presets
 //   bun generate.ts --seed "#3F51B5" --name indigo [--contrast 0.5]
 //
+// Each seed also gets a TTY palette (tty-<name>.json): TTY's fixed neutrals
+// with the dark scheme's accents.
+//
 // Requires bun (the library ships extensionless ESM imports that node rejects).
 
 import {
@@ -22,6 +25,7 @@ import {
 } from "@material/material-color-utilities";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { ttyPalette } from "./tty";
 import { forInstalledWayvr } from "./wayvr-compat";
 
 const PRESETS: Record<string, string> = {
@@ -87,6 +91,11 @@ function write(outDir: string, name: string, seed: string, contrast: number) {
     writeFileSync(join(outDir, file), JSON.stringify(palette, null, 2) + "\n");
     console.log(`${file}  (seed ${seed})`);
   }
+  const dark = wayvrPalette(seed, true, contrast);
+  const file = `tty-${name}.json`;
+  const palette = forInstalledWayvr(ttyPalette({ primary: dark.primary, secondary: dark.secondary, success: dark.success }));
+  writeFileSync(join(outDir, file), JSON.stringify(palette, null, 2) + "\n");
+  console.log(`${file}  (seed ${seed})`);
 }
 
 function arg(flag: string): string | undefined {
